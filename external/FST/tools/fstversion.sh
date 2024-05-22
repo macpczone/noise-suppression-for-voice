@@ -6,17 +6,19 @@ if [ "x${fst_h}" = "x" ]; then
  fst_h=fst/fst.h
 fi
 
+extract_values() {
+ egrep "FST_(HOST|EFFECT|TYPE|CONST|FLAG|SPEAKER)"  "$1" \
+	 | egrep -v "# *define " \
+	 | grep -v "FST_fst_h"
+}
+
 version=$( \
-grep FST_ "${fst_h}" \
-| egrep -v "# *define " \
-| grep -v FST_fst_h_ \
+extract_values "${fst_h}" \
 | grep -v UNKNOWN \
 | grep -c . \
 )
 unknown=$( \
-grep FST_ "${fst_h}" \
-| egrep -v "# *define " \
-| grep -v FST_fst_h_ \
+extract_values "${fst_h}" \
 | egrep "FST_.*_UNKNOWN" \
 | grep -c . \
 )

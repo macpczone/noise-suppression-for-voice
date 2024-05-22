@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<JUCERPROJECT id="yoFRcB" name="JstPlugin" projectType="audioplug" jucerVersion="5.4.1"
-              pluginFormats="buildVST">
+<JUCERPROJECT id="yoFRcB" name="JstPlugin" projectType="audioplug" pluginFormats="buildVST"
+              jucerFormatVersion="1">
   <MAINGROUP id="Tjn5MC" name="JstPlugin">
     <GROUP id="{8C388FDC-8D12-5E08-1AFB-AFF194D1806D}" name="Source">
       <FILE id="TQQwiU" name="PluginProcessor.cpp" compile="1" resource="0"

@@ -17,6 +17,21 @@ static void fstpause(float duration=1.0) {
   usleep(duration * 1000000);
 }
 
+#define FOURCC(fourcc) ((fourcc[0]<<24) | (fourcc[1]<<16) | (fourcc[2]<< 8) | (fourcc[3]<< 0))
+
+static char*fourcc2str(unsigned int fourcc, char buf[4]) {
+  buf[0] = (fourcc >> 24) & 0xFF;
+  buf[1] = (fourcc >> 16) & 0xFF;
+  buf[2] = (fourcc >>  8) & 0xFF;
+  buf[3] = (fourcc >>  0) & 0xFF;
+  return buf;
+}
+static char*fourcc2str(unsigned int fourcc) {
+  static char buf[5];
+  buf[4] = 0;
+  return fourcc2str(fourcc, buf);
+}
+
 static void print_hex(void*ptr, size_t length) {
   printf("DATA@%p [%d]", ptr, length);
   unsigned char* data = (unsigned char*)ptr;
@@ -86,6 +101,7 @@ static char*effCode2string(size_t opcode, char*output, size_t length) {
     FST_UTILS__OPCODESTR(effEditTop);
     FST_UTILS__OPCODESTR(effGetChunk);
     FST_UTILS__OPCODESTR(effGetCurrentMidiProgram);
+    FST_UTILS__OPCODESTR(fst_effGetMidiNoteName);
     FST_UTILS__OPCODESTR(effGetEffectName);
     FST_UTILS__OPCODESTR(effGetInputProperties);
     FST_UTILS__OPCODESTR(effGetNumMidiInputChannels);
@@ -126,7 +142,7 @@ static char*effCode2string(size_t opcode, char*output, size_t length) {
     FST_UTILS__OPCODESTR(effVendorSpecific);
   default: break;
   }
-  snprintf(output, length, "%d", opcode);
+  snprintf(output, length, "%llu=0x%X", opcode, opcode);
   return output;
 }
 static char*hostCode2string(t_fstPtrInt opcode, char*output, size_t length) {
@@ -177,7 +193,7 @@ static char*hostCode2string(t_fstPtrInt opcode, char*output, size_t length) {
     FST_UTILS__OPCODESTR(audioMasterWillReplaceOrAccumulate);
   default: break;
   }
-  snprintf(output, length, "%d", opcode);
+  snprintf(output, length, "%llu=0x%X", opcode, opcode);
   return output;
 }
 
@@ -200,6 +216,7 @@ static int effKnown(t_fstPtrInt opcode) {
     case effEditTop:
     case effGetChunk:
     case effGetCurrentMidiProgram:
+    case fst_effGetMidiNoteName:
     case effGetEffectName:
     case effGetInputProperties:
     case effGetNumMidiInputChannels:
@@ -543,6 +560,7 @@ static void print_timeinfo(VstTimeInfo*vti) {
   FST_UTILS__VTI_g(vti, cycleEndPos);
   FST_UTILS__VTI_d(vti, timeSigNumerator);
   FST_UTILS__VTI_d(vti, timeSigDenominator);
+  FST_UTILS__VTI_d(vti, samplesToNextClock);
   FST_UTILS__VTI_x(vti, flags);
 
   int flags = vti->flags;
@@ -701,9 +719,13 @@ t_fstPtrInt dispatch_effect (const char*name, AEffectDispatcherProc dispatchcb,
     char opcodestr[256];
     if(!dispatchcb)
       dispatchcb = effect->dispatcher;
-    printf("Fst::host2plugin(%s, %s, %d, %lu, %p, %f)\n",
-        effectname, effCode2string(opcode, opcodestr, 255), index, ivalue, ptr, fvalue);
+    printf("Fst::host2plugin(%s, %s, %u=0x%X, %llu=0x%X, %p, %f)\n",
+        effectname, effCode2string(opcode, opcodestr, 255),
+        index, index,
+        ivalue, ivalue,
+        ptr, fvalue);
     print_effPtr(effect, opcode, index, ivalue, ptr, fvalue, 1);
+    fflush(stdout);
     t_fstPtrInt result = dispatchcb(effect, opcode, index, ivalue, ptr, fvalue);
     printf("Fst::host2plugin: %lu (0x%lX)\n", result, result);
     print_effPtr(effect, opcode, index, ivalue, ptr, fvalue, 2, result);
@@ -719,9 +741,10 @@ t_fstPtrInt dispatch_host (const char*name, AEffectDispatcherProc dispatchcb,
   snprintf(effname, 64, "%p", effect);
   const char*effectname = name?name:effname;
   char opcodestr[256];
-  printf("Fst::plugin2host(%s, %s, %d, %lu, %p, %f)\n",
-         effectname, hostCode2string(opcode, opcodestr, 255), index, ivalue, ptr, fvalue);
+  printf("Fst::plugin2host(%s, %s, %u=0x%X, %llu=0x%X, %p, %f)\n",
+      effectname, hostCode2string(opcode, opcodestr, 255), index, index, ivalue, ivalue, ptr, fvalue);
   print_hostPtr(effect, opcode, index, ivalue, ptr, fvalue, 1);
+  fflush(stdout);
   t_fstPtrInt result = dispatchcb(effect, opcode, index, ivalue, ptr, fvalue);
   printf("Fst::plugin2host: %lu (0x%lX)\n", result, result);
   print_hostPtr(effect, opcode, index, ivalue, ptr, fvalue, 2, result);
@@ -750,6 +773,7 @@ t_fstMain* fstLoadPlugin(const char* filename) {
   if(!vstfun)dlclose(handle);
 #endif
   printf("loaded '%s' @ %p: %p\n", filename, handle, vstfun);
+  fflush(stdout);
   fstpause(1.);
   return vstfun;
 }

@@ -1,7 +1,7 @@
 #####################################################################
 ## GNUmakefile for GNU Makefiles ('make')
 ##
-## see makefile for Windows' 'nmake'
+## see makefile.msvc for Windows' 'nmake'
 #####################################################################
 
 CPPFLAGS=-I..
@@ -21,6 +21,6 @@ preproc: $(patsubst %.c,%.i,$(filter %.c,$(sources))) $(patsubst %.cpp,%.ii,$(fi
 
 
 %.i: %.c
-	$(CPP) $(CPPFLAGS) $< > $@
+	$(CC) -E $(CPPFLAGS) $< > $@
 %.ii: %.cpp
-	$(CPP) $(CPPFLAGS) $< > $@
+	$(CXX) -E $(CPPFLAGS) $< > $@

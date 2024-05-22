@@ -18,19 +18,31 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with striem.  If not, see <http://www.gnu.org/licenses/>.
+ * along with FST.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #ifndef FST_fst_h_
 #define FST_fst_h_
 
 #define FST_MAJOR_VERSION 0
-#define FST_MINOR_VERSION 120
+#define FST_MINOR_VERSION 123
 #define FST_MICRO_VERSION 0
 
 #define FST_VERSIONNUM(X, Y, Z)                                         \
         ((X)*10000 + (Y)*1000 + (Z))
 #define FST_VERSION FST_VERSIONNUM(FST_MAJOR_VERSION, FST_MINOR_VERSION, FST_MICRO_VERSION)
+
+/* helper macros for compiler specifics */
+#define _FST_STRING2(x) #x
+#define _FST_STRING(x) _FST_STRING2(x)
+#define _FST_PRAGMA(x) _Pragma(#x)
+#if defined(__GNUC__) || defined(__clang__)
+# define FST_WARNING(x) _FST_PRAGMA(GCC warning x)
+#elif defined _MSC_VER
+# define FST_WARNING(x) __pragma(message(__FILE__ ":" _FST_STRING(__LINE__) ": warning: " x))
+#else
+# define FST_WARNING(x)
+#endif
 
 
 /* helper macros for marking values as compatible with the original SDK */
@@ -66,6 +78,9 @@
 #define FST_ENUM_UNKNOWN(x) FST_DEPRECATE_ENUM(x) = (100000 + __LINE__)
 
 /* name mangling */
+#ifdef FST2VST
+# define _fstEffect AEffect
+#endif
 
 # define FST_HOST_OPCODE(x, y) audioMaster##x = y
 # define FST_HOST_OPCODE_EXPERIMENTAL(x, y) FST_ENUM_EXPERIMENTAL( audioMaster##x, y)
@@ -93,36 +108,67 @@
 
 #define VSTCALLBACK
 
-#include <stdint.h>
+ /* t_fstPtrInt: pointer sized int */
+#if defined(_WIN32) && (defined(__x86_64__) || defined (_M_X64))
+typedef long long t_fstPtrInt;
+#else
+typedef long t_fstPtrInt;
+#endif
 
-typedef intptr_t t_fstPtrInt; /* pointer sized int */
-typedef int32_t t_fstInt32; /* 32bit int */
+typedef int t_fstInt32; /* 32bit int */
 
 typedef enum {
   FST_HOST_OPCODE(Automate, 0), /* IN:index, IN:fvalue, return 0 */
   FST_HOST_OPCODE(Version, 1), /* return 2400 */
   FST_HOST_OPCODE_EXPERIMENTAL(CurrentId, 2), /* return shellUIDToCreate */
+
+
+
   FST_HOST_OPCODE(WantMidi, 6), /* return 0 */
   FST_HOST_OPCODE(GetTime, 7), /* return (fstTimeInfo*) */
   FST_HOST_OPCODE(ProcessEvents, 8), /* IN:ptr(fstEvents*), return 0 */
+
   FST_HOST_OPCODE(TempoAt, 10), /* IN:ivalue, return (10000*BPM) */
+
+
   /* 13: sending latency?? */
+
   FST_HOST_OPCODE(SizeWindow, 15), /* IN:index(width), IN:value(height), return 1 */
   FST_HOST_OPCODE(GetSampleRate, 16), /* return sampleRate */
   FST_HOST_OPCODE(GetBlockSize, 17), /* return blockSize */
+
+
+
+
+
   FST_HOST_OPCODE(GetCurrentProcessLevel, 23), /* return (!isRealtime)*4 */
+
+
+
+
+
+
+
   FST_HOST_OPCODE(GetVendorString, 32), /* OUT:ptr(char[MaxVendorStrLen]), return ptr */
   FST_HOST_OPCODE(GetProductString, 33), /* OUT:ptr(char[MaxProductStrLen]), return ptr */
   FST_HOST_OPCODE(GetVendorVersion, 34), /* return 0x0101 */
+
+
   FST_HOST_OPCODE(CanDo, 37), /* IN:ptr(char*), return *ptr in {"sendFstEvents", "sizeWindow",...} */
 
+
+
+
+  FST_HOST_OPCODE(UpdateDisplay, 42), /* return 1; triggers effGetProgram* */
   FST_HOST_OPCODE(BeginEdit, 43), /* IN:index, return 0 */
   FST_HOST_OPCODE(EndEdit, 44), /* IN:index, return 0 */
+
+
+
 
   FST_HOST_OPCODE_UNKNOWN(CloseWindow), /* ?, return 0 */
   FST_HOST_OPCODE_UNKNOWN(OpenWindow), /* ?, return 0 */
   FST_HOST_OPCODE_UNKNOWN(SetIcon), /* ?, return 0 */
-  FST_HOST_OPCODE_UNKNOWN(UpdateDisplay), /* return 0 */
 
   FST_HOST_OPCODE_UNKNOWN(GetParameterQuantization), /* ?, return 0 */
   FST_HOST_OPCODE_UNKNOWN(GetNumAutomatableParameters),
@@ -167,6 +213,7 @@ typedef enum {
 
   fst_audioMasterLast /* last enum */
 } t_fstHostOpcode;;
+
 typedef enum {
   FST_EFFECT_OPCODE(Open, 0), /* return 0 */
   FST_EFFECT_OPCODE(Close, 1), /* return 0 */
@@ -179,46 +226,74 @@ typedef enum {
   FST_EFFECT_OPCODE(GetParamLabel, 6), /* OUT:ptr(char[8]), return 0 */
   FST_EFFECT_OPCODE(GetParamDisplay, 7), /* OUT:ptr(char[8]), return 0 */
   FST_EFFECT_OPCODE(GetParamName, 8), /* OUT:ptr(char[8]), return 0 */
+
   FST_EFFECT_OPCODE(SetSampleRate, 10), /* IN:fvalue, return 0 */
   FST_EFFECT_OPCODE(SetBlockSize, 11), /* IN:ivalue, return 0 */
   FST_EFFECT_OPCODE(MainsChanged, 12), /* IN:ivalue, return 0;  (handleResumeSuspend) */
-
   FST_EFFECT_OPCODE(EditGetRect, 13), /* OUT:ptr(ERect*), return ptr */
-  FST_EFFECT_OPCODE(EditOpen, 14),
+  FST_EFFECT_OPCODE(EditOpen, 14), /* return 0 */
   FST_EFFECT_OPCODE(EditClose, 15), /* return 0 */
-  FST_EFFECT_OPCODE(EditIdle, 19),
+
+
+
+  FST_EFFECT_OPCODE(EditIdle, 19), /* return 0 */
+
 
   FST_EFFECT_OPCODE(Identify, 22), /* return ByteOrder::bigEndianInt ("NvEf") 1316373862 or 1715828302 */
   FST_EFFECT_OPCODE(GetChunk, 23), /* IN:index, OUT:ptr(void*), return size */
   FST_EFFECT_OPCODE(SetChunk, 24), /* IN:index, IN:ivalue(size), IN:ptr(void*), return 0 */
-
   FST_EFFECT_OPCODE(ProcessEvents, 25), /* IN:ptr(fstEvents*), return ((bool)MidiProcessed */
   FST_EFFECT_OPCODE(CanBeAutomated, 26), /* (can parameter# be automated) IN:index, return 0 */
   FST_EFFECT_OPCODE(String2Parameter, 27), /* IN:index, IN:ptr(char*), return (hasParam#) */
 
   FST_EFFECT_OPCODE(GetProgramNameIndexed, 29), /* IN:index, OUT:ptr(char[24], return (hasProg#) */
+
+
+
   FST_EFFECT_OPCODE(GetInputProperties, 33), /* IN:index, OUT:ptr(fstPinProperties*), return 1|0 */
   FST_EFFECT_OPCODE(GetOutputProperties, 34), /* IN:index, OUT:ptr(fstPinProperties*), return 1|0 */
   FST_EFFECT_OPCODE(GetPlugCategory, 35), /* return category */
 
+
+
+
+
+
   FST_EFFECT_OPCODE(SetSpeakerArrangement, 42), /* IN:ivalue(fstSpeakerArrangement*in) IN:ptr(fstSpeakerArrangement*out) */
 
+
   FST_EFFECT_OPCODE(GetEffectName, 45), /* OUT:ptr(char[64]), return 1 */
+
   FST_EFFECT_OPCODE(GetVendorString, 47), /* OUT:ptr(char[64]), return 1 */
   FST_EFFECT_OPCODE(GetProductString, 48), /* OUT:ptr(char[64]), return 1 */
   FST_EFFECT_OPCODE(GetVendorVersion, 49), /* return version */
   FST_EFFECT_OPCODE(VendorSpecific, 50), /* behaviour defined by vendor... */
-
   FST_EFFECT_OPCODE(CanDo, 51), /* IN:ptr(char*), returns 0|1|-1 */
+
+
+
+
+
+
   FST_EFFECT_OPCODE(GetVstVersion, 58), /* return kVstVersion */
+
+
+
+
   FST_EFFECT_OPCODE_EXPERIMENTAL(GetCurrentMidiProgram, 63), /* return -1 */
 
-  FST_EFFECT_OPCODE(GetSpeakerArrangement, 69), /* OUT:ivalue(fstSpeakerArrangement*in) OUT:ptr(fstSpeakerArrangement*out), return (!(hasAUX || isMidi)) */
+  /* we know what this does, but we don't know its name */
+  FST_DEPRECATE_UNKNOWN(fst_effGetMidiNoteName) = 66, /* IN:index=MIDIchannel, IN:ptr({int unknown, int midinote, char*buffer}), OUT:ptr.buffer) */
 
+
+  FST_EFFECT_OPCODE(GetSpeakerArrangement, 69), /* OUT:ivalue(fstSpeakerArrangement*in) OUT:ptr(fstSpeakerArrangement*out), return (!(hasAUX || isMidi)) */
   FST_EFFECT_OPCODE(ShellGetNextPlugin, 70),
   FST_EFFECT_OPCODE_EXPERIMENTAL(StartProcess, 71),
   FST_EFFECT_OPCODE_EXPERIMENTAL(StopProcess, 72),
   FST_EFFECT_OPCODE(SetTotalSampleToProcess, 73), /* return ivalue */
+
+
+
   FST_EFFECT_OPCODE(SetProcessPrecision, 77), /* IN:ivalue(ProcessPrecision64,..), return !isProcessing */
 
 
@@ -241,9 +316,7 @@ typedef enum {
 
   FST_EFFECT_OPCODE_UNKNOWN(Idle),
 
-#if defined(__GNUC__) || defined(__clang__)
-# warning document origin of eff*SetProgram
-#endif
+FST_WARNING("document origin of eff*SetProgram")
   FST_EFFECT_OPCODE_UNKNOWN(BeginSetProgram),
   FST_EFFECT_OPCODE_UNKNOWN(EndSetProgram),
 
@@ -252,12 +325,20 @@ typedef enum {
 
 typedef enum {
   FST_EFFECT_FLAG(HasEditor,           0),
+
+
+
   FST_EFFECT_FLAG(CanReplacing,        4),
   FST_EFFECT_FLAG(ProgramChunks,       5),
+
+
   FST_EFFECT_FLAG(IsSynth,             8),
   FST_EFFECT_FLAG(NoSoundInStop,       9),
+
+
   FST_EFFECT_FLAG(CanDoubleReplacing, 12),
 } t_fstEffectFlags;
+
 typedef enum {
   FST_EFFECT_CATEGORY_EXPERIMENTAL(Unknown, 0),
   FST_EFFECT_CATEGORY_EXPERIMENTAL(Effect, 1),
@@ -308,6 +389,7 @@ typedef enum {
   FST_SPEAKER(Arr102, 28),
   FST_SPEAKER(ArrUserDefined, -2),
 
+FST_WARNING("document origin of kSpeakerM")
   FST_SPEAKER_EXPERIMENTAL(M, 0),
   FST_SPEAKER(L, 1),
   FST_SPEAKER(R, 2),
@@ -329,12 +411,10 @@ typedef enum {
   FST_SPEAKER_UNKNOWN(Trr),
   FST_SPEAKER_UNKNOWN(Lfe2),
 
-#if defined(__GNUC__) || defined(__clang__)
-# warning document origin of kSpeakerM
-#endif
   FST_SPEAKER_UNKNOWN(Undefined),
   fst_speakerLast /* last enum */
 } t_fstSpeakerArrangementType;
+
 enum { /* fstTimeInfo.flags */
   FST_FLAG(TransportChanged,     0),
   FST_FLAG(TransportPlaying,     1),
@@ -352,6 +432,7 @@ enum { /* fstTimeInfo.flags */
   FST_FLAG(SmpteValid   , 14),
   FST_FLAG(ClockValid   , 15)
 };
+
 enum {
 /* 197782 is where the array passed at opcode:33 overflows */
 /* GVST/GChorus crashes with MaxVendorStrLen>130 */
@@ -371,6 +452,9 @@ enum {
   FST_FLAG_UNKNOWN(PinIsActive),
   FST_FLAG_UNKNOWN(PinUseSpeaker),
   FST_FLAG_UNKNOWN(PinIsStereo),
+
+  /* REAPER: used with effVendorSpecific to indicate that parameter values are enums */
+  FST_CONSTANT_UNKNOWN(ParameterUsesIntStep),
 };
 
 typedef enum {
@@ -402,11 +486,12 @@ typedef enum {
 enum {
   /* returned by audioMasterGetCurrentProcessLevel: */
       FST_CONSTANT_EXPERIMENTAL(ProcessLevelUnknown, 0),
+
       FST_CONSTANT(ProcessLevelRealtime, 2),
+
       FST_CONSTANT(ProcessLevelOffline, 4),
-#if defined(__GNUC__) || defined(__clang__)
-# warning document origin of ProcesslevelUser
-#endif
+
+FST_WARNING("document origin of ProcesslevelUser")
       FST_CONSTANT_UNKNOWN(ProcessLevelUser), /* vstplugin~ */
 };
 
@@ -492,9 +577,7 @@ typedef struct fstTimeInfo_ {
 
   int FST_UNKNOWN(currentBar), FST_UNKNOWN(magic); /* we just made these fields up, as their values seem to be neither flags nor smtp* */
 
-#if defined(__GNUC__) || defined(__clang__)
-# warning document origin of samplesToNextClock
-#endif
+FST_WARNING("document origin of samplesToNextClock")
   /* this used to be '_pad' */
   FST_UNKNOWN(int) samplesToNextClock;/* ? */
 
@@ -510,6 +593,8 @@ typedef struct fstPinProperties_ {
   char shortLabel[8];
 } FST_UNKNOWN(t_fstPinProperties);
 
+
+struct _fstEffect;
 
 /* t_fstPtrInt dispatcher(effect, opcode, index, ivalue, ptr, fvalue); */
 typedef t_fstPtrInt (*AEffectDispatcherProc)(struct _fstEffect*, int, int, t_fstPtrInt, void* const, float);
@@ -561,6 +646,8 @@ typedef struct _fstRectangle {
 } t_fstRectangle;
 
 
+typedef t_fstHostOpcode AudioMasterOpcodesX;
+
 typedef t_fstEvent FST_TYPE(Event);
 typedef t_fstMidiEvent FST_TYPE(MidiEvent);
 typedef t_fstSysexEvent FST_TYPE(MidiSysexEvent);
@@ -579,9 +666,12 @@ typedef t_fstPtrInt VstIntPtr;
 typedef t_fstInt32 VstInt32;
 
 const int FST_CONST(EffectMagic, 0x56737450);
-#if defined(__GNUC__) || defined(__clang__)
-# warning document origin of CCONST
+
+/* see https://github.com/steinbergmedia/vst3_pluginterfaces/blob/efcfbf8019a2f1803b7be9936a81124abb583507/base/futils.h#L91-L95
+ * for a GPL-v3 definition of CCONST
+ */
+#ifndef CCONST
+# define CCONST(a,b,c,d) ((((unsigned char)a)<<24) + (((unsigned char)b)<<16) + (((unsigned char)c)<<8) + ((unsigned char)d))
 #endif
-#define CCONST(a,b,c,d) ((((unsigned char)a)<<24) + (((unsigned char)b)<<16) + (((unsigned char)c)<<8) + ((unsigned char)d))
 
 #endif /* FST_fst_h_ */

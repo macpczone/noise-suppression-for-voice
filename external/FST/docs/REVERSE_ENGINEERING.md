@@ -26,6 +26,7 @@ all VST-related software was accessed on 2019-02-16 unless otherwise indicated.
 
 - JUCE-5.4.1: https://d30pueezughrda.cloudfront.net/juce/juce-5.4.1-linux.zip
 - JUCE-6.0.7: https://github.com/juce-framework/JUCE/releases/download/6.0.7/juce-6.0.7-linux.zip (accessed 2021-02-03)
+- JUCE-7.0.2: https://github.com/juce-framework/JUCE/releases/download/7.0.2/juce-7.0.2-linux.zip (accessed 2022-08-17)
 
 
 ### Plugins
@@ -38,6 +39,11 @@ all VST-related software was accessed on 2019-02-16 unless otherwise indicated.
 - Hypercyclic: http://www.mucoder.net/en/hypercyclic/
 - Tonespace: http://www.mucoder.net/en/tonespace/
 - GVST: https://www.gvst.co.uk/index.htm
+
+- ArpeggiatorTutorial: https://docs.juce.com/master/tutorial_plugin_examples.html (accessed 2022-08-17)
+- NoiseGateTutorial: https://docs.juce.com/master/tutorial_plugin_examples.html (accessed 2022-08-17)
+- SurroundTutorial: https://docs.juce.com/master/tutorial_plugin_examples.html (accessed 2022-08-17)
+- MultiOutSynthTutorial: https://docs.juce.com/master/tutorial_plugin_examples.html (accessed 2022-08-17)
 
 ### Hosts
 
@@ -365,6 +371,17 @@ typedef struct AEffect_ {
 } AEffect;
 ~~~
 
+#### the AEffect struct tag
+As of JUCE-7.0.2, the `typedef struct AEffect_ AEffect` fails to compile,
+as it uses `struct AEffect` as an argument (that is: it uses the struct-tag `AEffect`
+rather than the typedef `AEffect`).
+Since I don't know of any way to alias a struct-tag, we really must use `struct AEffect` as in:
+
+~~~C
+typedef struct AEffect {
+/* ... */
+} AEffect;
+~~~
 
 ### VstPinProperties
 this is also a type rather than an enum.
@@ -615,7 +632,7 @@ the opcodes for the host start with `audioMaster*`.
 ## fake values
 
 to make our live a bit easier, we want to make sure to be able to differentiate between
-real opcodes (the values we somehow detected from our reverse engineering effords) and
+real opcodes (the values we somehow detected from our reverse engineering efforts) and
 fake opcodes (those where we only know the name, but have no clue about their actual value).
 
 The simplest way is to just assign values to the fake opcodes that we are pretty sure are wrong
@@ -872,7 +889,7 @@ $1 = {magic = 1450406992, uniqueID = 0, version = -141927152, object = 0x7ffff78
 This looks bad enough.
 Not all looks bad though: `magic` has a value of `1450406992`, which really is `0x56737450` in hex,
 which happens to be the magic number `VstP`.
-The rest however is absymal: negative version numbers, unique IDs that are `0` (how unique can you get),
+The rest however is abysmal: negative version numbers, unique IDs that are `0` (how unique can you get),
 a function pointer (to `processReplacing`) that is `0x31` which is definitely invalid.
 
 So let's take a closer look at the actual data.
@@ -1028,7 +1045,7 @@ btw, loading the *Protoverb* plugin into *REAPER*,
 will also print something about a 16samples delay to the stderr).
 
 ~~~C
-typedef struct AEffect_ {
+typedef struct AEffect {
   t_fstInt32 magic; /* @0 0x56737450, aka 'VstP' */
   char _pad1[4]; // always 0
   AEffectDispatcherProc* dispatcher; // ???
@@ -1080,7 +1097,7 @@ Also the number of zeros around the `object` member seems to be off.
 Using `pointer sized int` instead of `int32` helps a bit:
 
 ~~~
-typedef struct AEffect_ {
+typedef struct AEffect {
   VstIntPtr magic;
   AEffectDispatcherProc* dispatcher;  //??
   AEffectProcessProc* process; //?
@@ -1705,7 +1722,7 @@ any explicit `value` argument at all )e.g. because the host things this is reall
 So let's play with those, and just revert the order of the two functions:
 
 ~~~C
-typedef struct AEffect_ {
+typedef struct AEffect {
   t_fstInt32 magic;
   AEffectDispatcherProc* dispatcher;
   AEffectProcessProc* process;
@@ -2369,7 +2386,7 @@ the loop end point is at `4.2.00` aka 6.5 seconds.
 
 Some columns have very reasonable values (e.g. columns 1, 2, 4, 5, 6, 7 and 8),
 while others are out of bounds (9, 10, 11 and 12).
-The reasonable values indicate that we used the corret type to decode the bytes.
+The reasonable values indicate that we used the correct type to decode the bytes.
 A value like "8.48798e-314" is hardly useful in the context of audio processing,
 so most likely these bytes just don't represent double values.
 Note that there's a clear divide between reasonable values to the left (the first 8 numbers; aka 64 bytes)
@@ -2432,7 +2449,7 @@ Playing around with the project cursor a bit and watching the third number, it s
 
 The number `-559038737` has a (little endian) hex representation of 0xDEADBEEF and is a typical magic number.
 
-We should also havea look at the bytes @10-18, which - so far - made most sense when decoded as double.
+We should also have a look at the bytes @10-18, which - so far - made most sense when decoded as double.
 Because the numbers are so high (*1.48147e+14*) we divide them by 10^9.
 
 This results in the display of a number (e.g. `152197`) that increments by 1 every second.
@@ -2540,7 +2557,7 @@ So far we got:
 - the 3rd and 13th bits are set when looping
 - the 4th bit is set when recording
 
-If we skim through the list of contants for values that might be related to the transport state,
+If we skim through the list of constants for values that might be related to the transport state,
 we find 4 constants starting with `kVstTransport*`, that map neatly to the observed bits:
 
 | flag                       | value |
@@ -2950,7 +2967,7 @@ in order to receive this opcode (which kind of makes sense).
 # Part: AudioPluginHost
 With many opcodes working, we can start testing on a larger scale.
 
-A good start is by compiling some slighly larger application ourself, e.g. the *AudioPluginHost* that comes with JUCE.
+A good start is by compiling some slightly larger application ourself, e.g. the *AudioPluginHost* that comes with JUCE.
 
 Once started we can load the *Protoverb* plugin, to see that a number of yet unknown opcodes are called in both directions:
 
@@ -3459,7 +3476,7 @@ Luckily, a friend of mine pointed me to another set of free-as-in-beer plugins, 
 Loading the above plugin in a fake host, we get immediate segfaults when trying to write vendor string,
 using our estimate of `kVstMaxVendorStrLen` (197782).
 Gradually lowering the maximum length of the vendor string, the first value where it doesn't crash is `130`.
-This is a much more reasonable length thatn *197782*, although `128` would be even more plausible.
+This is a much more reasonable length than *197782*, although `128` would be even more plausible.
 Lets used that last value for `kVstMaxVendorStrLen` (and `kVstMaxProductStrLen` as well).
 
 ## effString2Parameter
@@ -3590,7 +3607,7 @@ we noticed non-null values a position @58, which we concluded might be uninitial
 We can easily test this assumption: since `VstSpeakerProperties` is at least 4 bytes large
 (assuming that it's `type` member is a 32bit `int` like all other types we have seen so far),
 and REAPER can handle up to 64 channels, we can force the full size of `speakers[]` to 256 bytes
-(64 * 4), which is way beyong the 88 bytes of position @58.
+(64 * 4), which is way beyond the 88 bytes of position @58.
 
 Printing the first 512 bytes a 64channel plugin receives with the `effSetSpeakerArrangement` opcode, gives:
 
@@ -3686,7 +3703,7 @@ So printing 8192 bytes (which should cover 64 channels if each really takes 112 
 | 64       | alternating `01`/`02` from @58 to @1be8, every 0x70 bytes | after @1f88 |
 | 3        | `01`@58, `02`@c8, `03`@138                                | after @4da  |
 
-After a certain point the data is densly filled with non-null bytes, which probably really is "uninitialized memory" (aka "garbage").
+After a certain point the data is densely filled with non-null bytes, which probably really is "uninitialized memory" (aka "garbage").
 
 The important part to notice is that the position difference between the first lonely byte @58 and the last one (@c8, @138, @1be8)
 is always `112 * (numChannels-1)`.
@@ -3819,14 +3836,14 @@ Nice. Now we only need to ask the host for the current processLevel (calling `au
 | unchecked (OFF)                           | 2     | `kVstProcessLevelRealtime` |
 | checked (ON)                              | 4     | `kVstProcessLevelOffline`  |
 
-REAPER also reports a a process-level of `1`, but only at the beginning (e.g. while the host calls the plugin with `effMainsChanged`).
+REAPER also reports a process-level of `1`, but only at the beginning (e.g. while the host calls the plugin with `effMainsChanged`).
 
 | name                       | value | note                                        |
 |----------------------------|-------|---------------------------------------------|
 | ??                         | 0     | returned by JUCE is in realtime mode        |
 | ??                         | 1     | returned by REAPER during `effMainsChanged` |
 | `kVstProcessLevelRealtime` | 2     | returned by REAPER during normal rendering  |
-| ??                         | 3     | (inbetween)                                 |
+| ??                         | 3     | (in between)                                 |
 | `kVstProcessLevelOffline`  | 4     | returned by REAPER when offline-rendering; returned by JUCE if NOT in realtime mode |
 | `kVstProcessLevelUnknown`  | ??    | used by MrsWatson                           |
 
@@ -3933,7 +3950,7 @@ of 171 symbols extracted from JUCE-6.0.7 to 11 names that we don't know yet:
 
 
 So Apple also uses the `k` prefix for constants.
-Anyhow, only the `kVstMaxParamStrLen` constant appear to be truely VST2-related.
+Anyhow, only the `kVstMaxParamStrLen` constant appear to be truly VST2-related.
 Checking the JUCE sources for a bit of context, we learn:
 
 > length should technically be `kVstMaxParamStrLen`, which is 8, but hosts will normally allow a bit more
@@ -3946,6 +3963,131 @@ So we found one more symbol, along with its value:
 
 
 
+
+
+# JUCE-7.0.2
+
+Time has passed again.
+Recently (at the middle of 2022) I checked compiling `JstHost` and `JstPlugin`
+against JUCE-7.0.2. And it miserably failed, with unknown symbols (again).
+
+## AudioMasterOpcodesX
+
+This time it was only one, namely a type `AudioMasterOpcodesX` (within the
+`Vst2::` namespace, but that is added by JUCE).
+We also notice that this type is used with the `audioMasterIOChanged` opcode.
+Which makes us think that the `AudioMasterOpcodesX` is simply a typedef for our
+host opcode enumeration.
+
+Note: The trailing `X` in the type name most likely indicates that it is defined
+in the `aeffectx.h` header.
+It's likely, that there is also an `AudioMasterOpcodes` enum type, and they
+contain different enumerations.
+We ignore this for now and simply wrap all our host opcodes into an enumeration
+that is typedefed to `AudioMasterOpcodesX`.
+
+## struct AEffect
+
+JUCE-7.0.2 now explicitly uses the [`AEffect` struct tag](#the-aeffect-struct-tag).
+
+
+## effEditIdle
+JUCE-7.0.2 now issues `effEditIdle` in the host's `VSTPluginInstance::handleIdle()`
+(at least if the plugin is currently being shown).
+On Linux, JUCE-7.0.2 plugins react on the `effEditIdle` by processing any pending events.
+
+These pending events appear to be responsible for updating the GUI,
+at least the GUI now shows nothing if I compile a JUCE-plugin (e.g. the
+*ArpeggiatorTutorial* plugin from the JUCE Plugin examples)
+and load it into REAPER:
+"nothing" being a rectangle that is not being updated at all.
+I'm sure it did show something in older versions of JUCE.
+
+As we want our GUI to be updated continuously, we need to check for a (yet unknown) opcode
+that is sent periodically to our plugin.
+With REAPER, this gives us two potential candidates: `opcode:19` and `opcode:53`.
+Both are called about every 50ms with only `0` as arguments.
+
+We also notice that both are only called when we open the *FX* window in REAPER.
+However, while `opcode:53` is always polled as soon as the *FX* window is open,
+`opcode:19` is only polled if we enable the built-in GUI.
+As soon as we switch to the generic GUI, only `opcode:53` remains.
+
+It's hard to tell which one we should pick, but
+*19* is close to the range of already known `effEdit*` opcodes (e.g. `effEditClose` is 15),
+whereas *53* is somewhere near `effCanDo`.
+
+So let's go for:
+
+| opcode      |    |
+|-------------|----|
+| effEditIdle | 19 |
+
+Maybe `opcode:53` is for `effIdle` (as it also gets continuously called),
+but why does it only get polled if the *FX* window is open?
+
+NOTE: while this makes the *ArpeggiatorTutorial* and friends work,
+they still crash when opening a second JUCE plugin. hmmm...
+
+
+## audioMasterUpdateDisplay
+Sometimes later (2023-06-01) somebody complained that `audioMasterUpdateDisplay` is not implemented by FST,
+and therefore some DAWs (like REAPER) do not update the display of any parameters that change "under the hood".
+
+Checking the JUCE source code ("modules/juce_audio_plugin_client/VST/juce_VST_Wrapper.cpp"),
+we see that the `audioMasterUpdateDisplay` opcode is used whenever
+- a "parameter info" changes
+- a "program change" occurs
+(we also see that if there is a "latency change", JUCE is going to call the `audioMasterIOChanged` opcode).
+
+So we need to find a host-opcode, that in turn triggers a re-query of the plugin's program and parameter info.
+
+In JUCE, the `audioMasterUpdateDisplay` opcode is called with all parameters set to `0`:
+```
+constexpr FlagPair pairs[] { { Vst2::audioMasterUpdateDisplay, audioMasterUpdateDisplayBit },
+                             { Vst2::audioMasterIOChanged,     audioMasterIOChangedBit } };
+
+for (const auto& pair : pairs)
+    if ((callbacksToFire & pair.bit) != 0)
+    callback (&owner.vstEffect, pair.opcode, 0, 0, nullptr, 0);
+```
+
+So we hook something like the following in a callback (e.g. to `effEditClose`),
+assuming that the opcode has an ID lower than 256 (which seems to be a safe assumption,
+given that the highest audioMaster opcode we've seen so far is 44...):
+
+
+```C
+for(size_t opcode=0; opcode<256; opcode++) {
+    int res;
+    if(hostKnown(opcode))
+      continue;
+    printf("test opcode(%d)", opcode);
+    res =  dispatch_v(eff, opcode, 0, 0, NULL, 0.0);
+    printf("test opcode(%d) -> %d\n", opcode, res);
+}
+```
+
+Only two opcodes have any interesting results:
+
+| opcode | return | side-effect                                   |
+|--------|--------|-----------------------------------------------|
+| 11     | 3      |                                               |
+| 12     | 1      |                                               |
+| 13     | 1      |                                               |
+| 19     | 0x600  |                                               |
+| 42     | 1      | calls `effGetProgram` and `effGetProgramName` |
+| other  | 0      |                                               |
+
+So, opcode `42` rescans the the current program and retrieces its name,
+which closely matches our expectation of what `audioMasterUpdateDisplay`
+is supposed to do ("triggers a re-query of the plugin's program [...] info.").
+
+So for now, we assume that we have found a new audioMaster opcode:
+
+| opcode                            | value |
+|-----------------------------------|-------|
+| audioMasterUpdateDisplay          | 42    |
 
 
 # Summary
@@ -3966,10 +4108,9 @@ Trying to compile JUCE plugins or plugin-hosts, we still miss a considerable num
 | `audioMasterNeedIdle`                    |
 | `audioMasterPinConnected`                |
 | `audioMasterSetOutputSampleRate`         |
-| `audioMasterUpdateDisplay`               |
 |------------------------------------------|
-| `effConnectInput`/ `effConnectOutput`    |
-| `effEdit(Draw,Idle,Mouse,Sleep,Top)`     |
+| `effConnect(In,Out)put`                  |
+| `effEdit(Draw,Mouse,Sleep,Top)`          |
 | `effGetNumMidi(In,Out)putChannels`       |
 | `effGetTailSize`                         |
 | `effIdle`                                |
@@ -3994,13 +4135,15 @@ that we don't know yet:
 |------------|-------|
 | audioHost* | 3     |
 | audioHost* | 13    |
-| audioHost* | 42    |
+| audioHost* | 14    |
 |------------|-------|
-| eff*       | 19    |
 | eff*       | 53    |
 | eff*       | 56    |
 | eff*       | 62    |
 | eff*       | 66    |
+
+
+
 
 
 # misc
@@ -4009,26 +4152,88 @@ LATER move this to proper sections
 
 ## hostCode:3
 ## hostCode:13
-## hostCode:42
+## hostCode:14
 
-## effCode:19
 ## effCode:53
+An `effEditIdle` opcode is always followed by an `effCode:53`,
+but the reverse is not true: the `effCode:53` comes
+- right from the start during the `effCanDo` cycle (after the `sendVstEvents`?)
 
 
 ## effCode:56
 
-gets called with automation, whenever the window gets focus?
+~~gets called with automation, whenever the window gets focus?~~
 
-    FstClient::dispatcher(0x2a4c8b0, 56, 0, 0, 0x7fff4a83fb40, 0.000000)...
+gets called, when a parameter has an automation track, and the window gains/loses focus:
+
+    FstClient::dispatcher(0x2a4c8b0, 56, 2, 0, 0x7fff4a83fb40, 0.000000)...
 
 The address seems to be zeroed-out (at least the first 0x99 bytes).
 The index is the parameter index currently being automated...
 
+Attempting to write something to the buffer does not seem to have any effect (in REAPER),
+unless you exceed the boundary of buffer, which triggers a stack-smashing segfault.
+It is triggered as soon as a non-NULL value is written at `(char*)ptr)[0x98]`.
+
+(This doesn't mean much, apart from the fact that we are writing out-of-bounds.
+esp. it doesn't tell us anything about the valid size of the buffer.)
+
+#### 2023-06-06
+
+also gets called when switching to the generic UI (where it gets called twice for reach parameter).
 
 ## effCode:62
 This is called when the MIDI-dialog gets opened (right before effCode:66; but only once)
 
 5*16 (80) bytes == 0x00
+
+### 2023-06-06
+hmm, with REAPER i know get this opcode much more often, namely 102 times, during startup.
+effCode:66 is never called in this case.
+
+The project has a number of MIDI-objects.
+Also, the first time it is called with some address (0x7fff149ae910), the remaining 101 times
+with another address (0x7fff149ae940).
+Since the two addresses are only 48 bytes apart, the data size is most likely at max. 48 bytes.
+
+On the other hand, seems that the byte @+0x44 (68) is incremented by each call...
+
+It seems that this repeated call only happens, if we write something to the memory at ptr.
+We also return '100'.
+If instead we return '10', the opcode is called 10(+2) times instead of 100(+2).
+
+#### walk-through
+- all calls happen at startup
+- first REAPER calls effGetParamName+effGetParamDisplay, immediately afterwards
+- a first call to effCode:62 is issued
+  - address `ptr` is X
+  - `((char*)ptr)[0x44]` == 0 (that is `((int*)ptr)[17]`)
+  - we write something (an adress to a string) to the memory and return N
+- after this REAPER calls effVendorSpecific/effGetEffectName (once)
+- after this we get get N+1 calls to effCode:62
+  - address `ptr` is (always) Y=X+0x30
+  - `((char*)ptr)[0x44]` == n (with n=0..N)
+  - we write something (an address to a string) to the memory and return N
+- finally we get *two* effVendorSpecific/effGetEffectName calls
+
+#### notes
+- if we don't write anything to the ptr, effCode:62 is only called once
+- if we return `0` in the *1st* call, effCode:62 is only called once
+- if we return `0` in the *2nd* call, effCode:62 is only called twice (so it stops after it received 0).
+  also the call the effGetProgramNameIndexed that follows now has some weird value
+- if we decrement the return value (10,9,...) by 1, we only get 5 calls (that is: 1+N/2 in the 2nd round; 1 in the 1st)
+- if we decrement the return value (10,8,...) by 2, we only get 5 calls (that is: 1+N/3 in the 2nd round; 1 in the 1st)
+- if we set the return value to  `((char*)ptr)[0x44]+1`, we get 127 calls (that is: 1+127 in the 2nd round; 1 in 1st)
+- if we return 200 (always), we get 127 calls (that is: 1+127 in the 2nd round; 1 in 1st)
+- if we return `10` in the *1st* round and `((char*)ptr)[0x44]+1` in the 2nd round, we get 127 calls (that is: 1+127 in the 2nd round; 1 in 1st)
+- if we change the `((char*)ptr)[0x44]` value, this seems to have no affect (presumably because the host uses a for-loop and just sets that value before calling from it's internal variable)
+
+so it seems that effCode:62 is called at mst 129 times (1 in the 1st round, 128 in the 2nd round), but it only continues to be called if the returned value is larger than `((char*)ptr)[0x44]`
+
+it also seems that **only** `((char*)ptr[0x04])` must be non-0, in order to keep running (that is: if this byte is non-0 we keep running even if the rest is 0; if the rest is non-0 but this byte is 0, running stops).
+Which bits at the bytes are set, seems to be irrelevant.
+
+Opening the MIDI editor (double-clicking on the MIDI object), re-issues the full `effCode:62` call (1+(N+1) times)
 
 ## effCode:66
 adding a MIDI-item in REAPER and pressing some keys
@@ -4041,11 +4246,44 @@ FstClient::dispatcher(0x19b9250, 62, 0, 0, 0x7ffe232a7660, 0.000000);
 FstClient::dispatcher(0x19b9250, 66, 0, 0, 0xeae040, 0.000000);
 FstClient::dispatcher(0x19b9250, 66, 0, 0, 0xeae040, 0.000000);
 ~~~
-### effCode:66
+
+the index is the MIDI channel number (zero-based).
+
 the pointer is an address to a memory region,
 where the first 4 bytes are 0,
 and the 2nd 4 bytes are an int32 between 34 and 72.
-the numbers seem to be the visible notes on the virtual MIDI keyboard.
+
+i have no idea what the first number is (it is always 0),
+but the second number is a MIDI-note number.
+Writing a string into the buffer right after the first 8 bytes (that hold the two numbers),
+will make REAPER show this string as labels for the given MIDI-note on the
+virtual MIDI keyboard.
+
+Unfortunately we do not now the opcode name for this.
+Given that there's a `effGetCurrentMidiProgram` opcode,
+my guess would be something along the lines of `effGetMidiNoteName`.
+
+## effEditDraw
+
+The `reaper_plugin_fx_embed.h` shipped with JUCE says, about REAPER
+
+```md
+* to support via VST2: canDo("hasCockosEmbeddedUI") should return 0xbeef0000
+* dispatcher will be called with opcode=effVendorSpecific, index=effEditDraw, value=parm2, ptr=(void*)(INT_PTR)parm3, opt=message (REAPER_FXEMBED_WM_*)
+```
+
+This should give us a good guess on `effEditDraw`.
+Arming our dummy plugin to output `0xBEEF0000` when it is asked whether it can do "hasCockosEmbeddedUI", should make REAPER send it an `effVendorSpecific` opcode with the index being some meaningful opcode.
+
+Unfortunately, a quick check shows, that REAPER will send exactly the same to `index` values with the `effVendorSpecific` opcodes as when we answer the "hasCockosEmbeddedUI" with `0x0`:
+
+| opcode            | index      | value      | ptr            | opt |
+|-------------------|------------|------------|----------------|-----|
+| effVendorSpecific | 0x73744341 | 0x46554944 | 0x7ffc4fd12ea0 | 0.0 |
+```
+Fst::host2plugin(FstPlugin, effVendorSpecific[50], 1936999233=0x73744341, 1179994436=0x46554944, 0x7ffc4fd12ea0, 0.000000)
+Fst::host2plugin(FstPlugin, effVendorSpecific[50], 45=0x2D, 80=0x50, 0x7ffc4fd133a0, 0.000000)
+```
 
 
 ## even more symbols
@@ -4060,6 +4298,3 @@ the numbers seem to be the visible notes on the virtual MIDI keyboard.
 | member         | VstTimeInfo.samplesToNextClock | vstplugin~ |
 |----------------|--------------------------------|------------|
 | type           | VstAEffectFlags                | vstplugin~ |
-| type           | VstInt32                       | vstplugin~ |
-|----------------|--------------------------------|------------|
-| function/macro | CCONST                         | vstplugin~ |

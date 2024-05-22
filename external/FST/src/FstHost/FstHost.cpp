@@ -544,7 +544,20 @@ int test_plugin(const char*filename) {
   return 0;
 }
 
+int usage(const char*progname) {
+  fprintf(stderr, "usage: %s <pluginfile> [<pluginfile> ...]\n", progname);
+  fprintf(stderr, ""
+          "\n"
+          "\tattempts to load each <pluginfile> as a plugin\n"
+          "\tand runs some basic tests\n"
+          "\n"
+    );
+  return 1;
+}
+
 int main(int argc, const char*argv[]) {
+  if(argc <= 1)
+    return usage(argv[0]);
   for(int i=1; i<argc; i++) {
     test_plugin(argv[i]);
   }

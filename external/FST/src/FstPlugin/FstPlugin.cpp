@@ -41,6 +41,7 @@ void print_struct7(AEffect* effect) {
 #endif
 }
 
+/* send data back to host: with printout */
 t_fstPtrInt dispatch_v (AEffect* effect, int opcode, int index, t_fstPtrInt ivalue, void*ptr, float fvalue) {
   bool doprint=true;
   switch(opcode) {
@@ -48,17 +49,17 @@ t_fstPtrInt dispatch_v (AEffect* effect, int opcode, int index, t_fstPtrInt ival
     doprint=true;
     break;
   case audioMasterGetCurrentProcessLevel:
-    //doprint=false;
+    doprint=false;
     break;
   }
   if(effect) {
     if(doprint) {
       char opcodestr[256];
-      printf("FstClient::snd2host(%p, %s, %d, %lu, %p, %f) => ",  effect, hostCode2string(opcode, opcodestr, 255), index, ivalue, ptr, fvalue);
+      printf("FstPlugin::plugin2host(%p, %s, %d, %lu, %p, %f) => ",  effect, hostCode2string(opcode, opcodestr, 255), index, ivalue, ptr, fvalue);
     }
     t_fstPtrInt result = dispatch(effect, opcode, index, ivalue, ptr, fvalue);
     if(doprint)
-      printf("FstClient::snd2host: %lu (0x%lX)\n", result, result);
+      printf("FstPlugin::plugin2host: %lu (0x%lX)\n", result, result);
     return result;
   }
   return 0xBEEF;
@@ -135,14 +136,74 @@ static int test_opcode66(AEffect*eff,
 static int test_opcode62(AEffect*eff,
     t_fstInt32 opcode, int index,
     t_fstPtrInt ivalue, void* const ptr, float fvalue) {
-  print_hex(ptr, 128);
-  snprintf((char*)ptr, 128, "OPCODE62");
-  return 100;
+  char*cptr = (char*)ptr;
+  char**ccptr = (char**)ptr;
+  int*iptr = (int*)ptr;
+  static unsigned int retval = 10;
+  int ret = retval;
+  return 0;
+#if 1
+  retval=0;
+  if(!retval)
+    ret = cptr[0x44]+1;
+#endif
+  printf("OPCODE62: %d = %d -> %d\n", iptr[17], cptr[68], ret);
+  //print_hex(ptr, 256);
+  //snprintf((char*)ptr, 128, "OPCODE62");
+  //*ccptr = (char*)"OPCODE62";
+  /* cptr[4] must be "true" in order to keep running */
+  for(int i=0; i<64; i++) cptr[i] = 128-i;
+  /* 'ret' must be > iptr[17] to keep running */
+  return ret;
 }
-static void test_opcode56(AEffect*eff,
+static int test_opcode56(AEffect*eff,
     t_fstInt32 opcode, int index,
     t_fstPtrInt ivalue, void* const ptr, float fvalue) {
+  int i;
+  char*cptr = (char*)ptr;
+  printf("OPCODE56\n");fflush(stdout);
   print_hex(ptr, 160);
+  snprintf(cptr, 16, "OPCODE56");
+#if 1
+  for(i=0; i<0x99; i++) {
+    cptr[i] = 0;
+  }
+  /* smash the stack */
+  //cptr[0x98] = 1;
+#endif
+  return 100;
+}
+
+static void test_hostVendorSpecific(AEffect*eff) {
+  int listadj[2] = { 1, 3 };
+  int opcode;
+  //audioMasterCallback(audioMasterVendorSpecific, 0xdeadbeef, audioMasterAutomate, listadj, 0.0);
+  for(opcode=0; opcode<100; opcode++) {
+    int skip = 0;
+    if(hostKnown(opcode)) continue;
+    switch (opcode) {
+    case 11: /* returns 3 */
+    case 12: /* returns 1 */
+    case 13: /* returns 1 */
+    case 19: /* returns 0x600 */
+    case 35: /* returns 1 */
+    default: break;
+    case 48:
+    case 53:
+      skip = 1;
+    }
+    if(skip)continue;
+    printf("testing %d\n", opcode); fflush(stdout);
+    dispatch_v(eff, opcode, 0xDEADBEEF, audioMasterAutomate, listadj, 0.0);
+  }
+}
+
+static int test_hostUpdateDisplay(AEffect*eff) {
+  int opcode = audioMasterUpdateDisplay;
+  int res;
+  res =  dispatch_v(eff, opcode, 0, 0, NULL, 0.0);
+  printf("%s: opcode(%d) -> %d\n", __FUNCTION__, opcode, res);fflush(stdout);
+  return res;
 }
 
 static int test_opcode26(AEffect*eff,
@@ -174,6 +235,7 @@ static void test_opcode25(AEffect*eff,
   dump_data(filename, ptr, 256);
 }
 
+/* eff*SpeakerArrangement */
 static void test_opcode42(AEffect*eff,
     t_fstInt32 opcode, int index,
     t_fstPtrInt ivalue, void* const ptr, float fvalue) {
@@ -200,17 +262,15 @@ static bool dispatcher_printEff(AEffect*eff,
     t_fstInt32 opcode, int index,
     t_fstPtrInt ivalue, void* const ptr, float fvalue) {
   char opcodestr[512];
-#if 0
-  printf("FstClient::dispatch(%p, %s, %d, %ld, %p, %f);\n",
-         eff, effCode2string(opcode, opcodestr, 512), index, ivalue, ptr, fvalue);
-#else
-  printf("FstClient::dispatch(%s, %d, %ld, %p, %f);\n",
+  printf("FstPlugin::dispatch(%s, %d, %ld, %p, %f);\n",
          effCode2string(opcode, opcodestr, 512), index, ivalue, ptr, fvalue);
-#endif
   return true;
 }
 static bool dispatcher_skip(t_fstInt32 opcode) {
   switch(opcode) {
+  case effEditIdle:
+    /* called permanently, if GUI is visible */
+    return true;
   case 53:
     /* REAPER calls this permanently */
     //printf("53...\n");
@@ -226,7 +286,8 @@ static bool dispatcher_noprint(t_fstInt32 opcode) {
   case effGetParamName:
   case effProcessEvents:
   case effVendorSpecific:
-  case 66:
+  case effEditIdle:
+  case fst_effGetMidiNoteName:
     return true;
   }
   return false;
@@ -261,9 +322,9 @@ static t_fstPtrInt dispatcher(AEffect*eff, t_fstInt32 opcode, int index, t_fstPt
     //case effGetVstVersion: return 2400;
   case 26:
     return test_opcode26(eff, opcode, index, ivalue, ptr, fvalue);
-  case 35:
+  case effGetPlugCategory:
     return test_opcode35(eff);
-  case 70:
+  case effShellGetNextPlugin:
     return test_opcode70(eff, (char*)ptr);
   case effGetVendorString:
     snprintf((char*)ptr, 16, "SuperVendor");
@@ -276,17 +337,17 @@ static t_fstPtrInt dispatcher(AEffect*eff, t_fstInt32 opcode, int index, t_fstPt
     test_opcode42(eff, opcode, index, ivalue, ptr, fvalue);
     return 0;
 #endif
-#if 0
+#if 1
   case 56:
-    test_opcode56(eff, opcode, index, ivalue, ptr, fvalue);
-    return 1;
+    return test_opcode56(eff, opcode, index, ivalue, ptr, fvalue);
 #endif
   case effProcessEvents:
     //test_opcode25(eff, opcode, index, ivalue, ptr, fvalue);
+    test_hostUpdateDisplay(eff);
     return 1;
   case 62:
     return test_opcode62(eff, opcode, index, ivalue, ptr, fvalue);
-  case 66:
+  case fst_effGetMidiNoteName:
     return test_opcode66(eff, opcode, index, ivalue, ptr, fvalue);
   case effEditGetRect:
     *((ERect**)ptr) = &editorBounds;
@@ -319,25 +380,38 @@ static t_fstPtrInt dispatcher(AEffect*eff, t_fstInt32 opcode, int index, t_fstPt
       index=sizeof(parameters);
     snprintf((char*)ptr, 32, "%+03d", int((parameters[index]-0.5)*360+0.5));
     return 0;
-  case effCanDo:
-    do {
-      printf("canDo '%s'?\n", (char*)ptr);
-      if(!strcmp((char*)ptr, "receiveVstEvents"))
-        return 1;
-      if(!strcmp((char*)ptr, "receiveVstMidiEvents"))
-        return 1;
-      if(!strcmp((char*)ptr, "sendVstEvents"))
-        return 1;
-      if(!strcmp((char*)ptr, "sendVstMidiEvents"))
-        return 1;
-      if(!strcmp((char*)ptr, "wantsChannelCountNotifications"))
-        return 1;
-#if 0
-      if(!strcmp((char*)ptr, "hasCockosExtensions")) {
-        return 0xBEEF0000;
-      }
-#endif
-    } while(0);
+  case effEditClose:
+    printf("EDIT Close!\n");
+    test_hostVendorSpecific(eff);
+    return 1;
+  case effCanDo: {
+    typedef struct _cando {
+      const char*ID;
+      unsigned int res;
+    } t_cando;
+    t_cando candos[] = {
+      {"receiveVstEvents", 1},
+      {"receiveVstMidiEvents", 1},
+      {"sendVstEvents", 1},
+      {"sendVstMidiEvents", 1},
+      /* announcing 'wantsChannelCountNotifications' makes REAPER send out effSetSpeakerArrangement */
+      //{"wantsChannelCountNotifications", 1},
+      {"hasCockosExtensions", 0xbeef0000},
+      {"hasCockosEmbeddedUI", 0xbeef0000},
+      {"hasCockosNoScrollUI", 1 /* ? */ },
+      {"hasCockosSampleAccurateAutomation", 1 /* ? */ },
+      {"hasCockosViewAsConfig", 1 /* ? */ },
+      {"cockosLoadingConfigAsParameters", 1 /* ? */ },
+      {0, 0} /* END */
+    };
+    t_cando*cando;
+    printf("canDo '%s'?\n", (char*)ptr);
+    if(!ptr) return 0;
+    for(cando=candos; cando->ID; cando++) {
+      if(!strcmp((char*)ptr, cando->ID))
+        return cando->res;
+    }
+  }
     return 0;
   case effMainsChanged:
       dispatch_v(eff, audioMasterGetCurrentProcessLevel, 0, 0, 0, 0.);
@@ -360,8 +434,60 @@ static t_fstPtrInt dispatcher(AEffect*eff, t_fstInt32 opcode, int index, t_fstPt
 #endif
       dispatch_v(eff, audioMasterWantMidi, 0, 1, 0, 0.);
       break;
+  case effVendorSpecific: {
+    char buf[1024];
+    printf("FstPlugin::%s(effVendorSpecific/%s)\n", __FUNCTION__, effCode2string(index, buf, sizeof(buf)));
+    switch(index) {
+      /* the 'stCA' code seems to be common among hosts ... */
+    case FOURCC("stCA"):
+      printf("FstPlugin::%s(effVendorSpecific/%.4s/%.4s) ", __FUNCTION__, fourcc2str(index), fourcc2str(ivalue, buf));
+      switch(ivalue) {
+      case FOURCC("Whee"):
+        printf("MouseWheel");
+        break;
+      default:
+        printf("(0x%08X)", ivalue);
+        break;
+      }
+      printf("\n");
+      break;
+      /*
+        https://www.reaper.fm/sdk/vst/vst_ext.php
+      */
+    case (int)0xDEADBEF0:
+      if (ptr && ivalue>=0 && ivalue<3)
+        {
+#if 0
+          ((double *)ptr)[0] = double(-180.);
+          ((double *)ptr)[1] = double( 180.);
+          printf("vendorspecific BEEF!\n");
+          return 0xbeef;
+#endif
+        }
+      break;
+    case effGetEffectName: {
+      /*
+        REAPER: override instance name
+      */
+      char**ccptr = (char**)ptr;
+      *ccptr = (char*)"OtherName";
+      return 0xF00D;
+    }
+      break;
+    case effGetParamDisplay:
+    case effString2Parameter:
+    case kVstParameterUsesIntStep:
+    case effCanBeAutomated:
+    case effGetChunk:
+    case effSetChunk:
+      break;
+    default:
+      break;
+    } /* switch (index) */
+  } /* case effVendorSpecific */
+    break;
   }
-  //printf("FstClient::dispatch(%p, %d, %d, %d, %p, %f)\n", eff, opcode, index, ivalue, ptr, fvalue);
+  //printf("FstPlugin::dispatch(%p, %d, %d, %d, %p, %f)\n", eff, opcode, index, ivalue, ptr, fvalue);
   //printf("JMZ\n");
 
   return 0;
@@ -383,7 +509,7 @@ static void find_audioMasterSizeWindow() {
 }
 
 static void setParameter(AEffect*eff, int index, float value) {
-  //printf("FstClient::setParameter(%p)[%d] -> %f\n", eff, index, value);
+  //printf("FstPlugin::setParameter(%p)[%d] -> %f\n", eff, index, value);
   if(index>=sizeof(parameters))
     index=sizeof(parameters);
   parameters[index] = value;
@@ -392,25 +518,25 @@ static void setParameter(AEffect*eff, int index, float value) {
 static float getParameter(AEffect*eff, int index) {
   if(index>=sizeof(parameters))
     index=sizeof(parameters);
-  //printf("FstClient::getParameter(%p)[%d] <- %f\n", eff, index, parameters[index]);
+  //printf("FstPlugin::getParameter(%p)[%d] <- %f\n", eff, index, parameters[index]);
   return parameters[index];
 }
 static void process(AEffect*eff, float**indata, float**outdata, int sampleframes) {
 #if 0
-  printf("FstClient::process0(%p, %p, %p, %d) -> %f\n", eff, indata, outdata, sampleframes, indata[0][0]);
+  printf("FstPlugin::process0(%p, %p, %p, %d) -> %f\n", eff, indata, outdata, sampleframes, indata[0][0]);
   test_gettime(eff);
 #endif
 }
 static void processReplacing(AEffect*eff, float**indata, float**outdata, int sampleframes) {
 #if 1
-  printf("FstClient::process1(%p, %p, %p, %d) -> %f\n", eff, indata, outdata, sampleframes, indata[0][0]);
+  printf("FstPlugin::process1(%p, %p, %p, %d) -> %f\n", eff, indata, outdata, sampleframes, indata[0][0]);
   test_processLevel(eff);
   //test_gettime(eff);
 #endif
 }
 static void processDoubleReplacing(AEffect*eff, double**indata, double**outdata, int sampleframes) {
 #if 0
-  printf("FstClient::process2(%p, %p, %p, %d) -> %g\n", eff, indata, outdata, sampleframes, indata[0][0]);
+  printf("FstPlugin::process2(%p, %p, %p, %d) -> %g\n", eff, indata, outdata, sampleframes, indata[0][0]);
   test_gettime(eff);
 #endif
 }

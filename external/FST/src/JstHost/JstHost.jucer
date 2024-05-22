@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<JUCERPROJECT id="MPzqul" name="JstHost" projectType="consoleapp" jucerVersion="5.4.1">
+<JUCERPROJECT id="MPzqul" name="JstHost" projectType="consoleapp" jucerFormatVersion="1">
   <MAINGROUP id="JJj33p" name="JstHost">
     <GROUP id="{83D2710B-DCC2-0102-841D-EFC9350BC200}" name="Source">
       <FILE id="SR5IZk" name="Main.cpp" compile="1" resource="0" file="Source/Main.cpp"/>
@@ -25,14 +25,14 @@
     </LINUX_MAKE>
   </EXPORTFORMATS>
   <MODULES>
-    <MODULE id="juce_audio_basics" showAllCode="1"/>
-    <MODULE id="juce_audio_processors" showAllCode="1"/>
-    <MODULE id="juce_core" showAllCode="1"/>
-    <MODULE id="juce_data_structures" showAllCode="1"/>
-    <MODULE id="juce_events" showAllCode="1"/>
-    <MODULE id="juce_graphics" showAllCode="1"/>
-    <MODULE id="juce_gui_basics" showAllCode="1"/>
-    <MODULE id="juce_gui_extra" showAllCode="1"/>
+    <MODULE id="juce_audio_basics" showAllCode="1" useGlobalPath="1"/>
+    <MODULE id="juce_audio_processors" showAllCode="1" useGlobalPath="1"/>
+    <MODULE id="juce_core" showAllCode="1" useGlobalPath="1"/>
+    <MODULE id="juce_data_structures" showAllCode="1" useGlobalPath="1"/>
+    <MODULE id="juce_events" showAllCode="1" useGlobalPath="1"/>
+    <MODULE id="juce_graphics" showAllCode="1" useGlobalPath="1"/>
+    <MODULE id="juce_gui_basics" showAllCode="1" useGlobalPath="1"/>
+    <MODULE id="juce_gui_extra" showAllCode="1" useGlobalPath="1"/>
   </MODULES>
   <LIVE_SETTINGS>
     <LINUX/>

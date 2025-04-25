@@ -31,6 +31,14 @@ jobs:
             artifact_prefix: "linux"
           }
           - {
+            name: "Ubuntu Latest ARM64 GCC",
+            os: ubuntu-24.04-arm,
+            cc: "gcc", cxx: "g++",
+            # Build is not parallel because gcc seem to run out of memory
+            build_params: "",
+            artifact_prefix: "linux-arm64"
+          }
+          - {
             name: "macOS Latest Clang",
             os: macos-latest,
             cc: "clang", cxx: "clang++",
@@ -42,7 +50,7 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Install Ubuntu dependencies
-        if: ${{ matrix.config.os == 'ubuntu-latest' }}
+        if: ${{ matrix.config.os == 'ubuntu-latest' || matrix.config.os == 'ubuntu-24.04-arm' }}
         run: |
           sudo apt-get install --no-install-recommends \
               libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev libxrandr-dev libxrender-dev
@@ -98,6 +106,7 @@ jobs:
       - name: Zip
         run: |
           zip -r linux-rnnoise linux-rnnoise
+          zip -r linux-arm64-rnnoise linux-arm64-rnnoise
           zip -r win-rnnoise win-rnnoise
           zip -r macos-rnnoise macos-rnnoise
 
@@ -115,5 +124,6 @@ jobs:
           tag_name: v${{ inputs.tag }}
           files: |
             linux-rnnoise.zip
+            linux-arm64-rnnoise.zip
             macos-rnnoise.zip
             win-rnnoise.zip

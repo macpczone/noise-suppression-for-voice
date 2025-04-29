@@ -67,6 +67,7 @@ jobs:
           CXX: ${{ matrix.config.cxx }}
           CMAKE_OSX_ARCHITECTURES: "x86_64;arm64"
         run: |
+          mkdir -p ${{runner.workspace}}/build
           CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release \
             -DBUILD_LADSPA_PLUGIN=1 \
             -DBUILD_VST_PLUGIN=1 \

@@ -56,22 +56,13 @@ jobs:
           sudo apt-get install --no-install-recommends \
               libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev libxrandr-dev libxrender-dev
 
-      - name: ccache
-        # TODO: Make MSVC build work with ccache
-        if: ${{ matrix.config.os != 'windows-latest' }}
-        uses: hendrikmuhs/ccache-action@v1.2.2
-        with:
-          key: ${{ matrix.config.os }}
-          variant: ccache
-          max-size: 100M
-
       - name: Configure
         env:
           CC: ${{ matrix.config.cc }}
           CXX: ${{ matrix.config.cxx }}
           CMAKE_OSX_ARCHITECTURES: "x86_64;arm64"
         run: >-
-          cmake -B${{runner.workspace}}/build -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          cmake -B${{runner.workspace}}/build -DCMAKE_BUILD_TYPE=Release
           -DBUILD_LADSPA_PLUGIN=1
           -DBUILD_VST_PLUGIN=1
           -DBUILD_VST3_PLUGIN=${{env.full_build}}

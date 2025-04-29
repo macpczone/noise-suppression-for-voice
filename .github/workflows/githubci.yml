@@ -82,15 +82,16 @@ jobs:
           CC: ${{ matrix.config.cc }}
           CXX: ${{ matrix.config.cxx }}
         run: |
-          cmake -B${{runner.workspace}}/build -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_FLAGS_RELEASE="/Ox /GL /fp:fast /arch:AVX2 /DNDEBUG /Gy /Gw /Oi /Ot /Ob2" \
-            -DCMAKE_CXX_FLAGS_RELEASE="/Ox /GL /fp:fast /arch:AVX2 /DNDEBUG /Gy /Gw /Oi /Ot /Ob2" \
-            -DCMAKE_EXE_LINKER_FLAGS_RELEASE="/LTCG /OPT:REF /OPT:ICF /INCREMENTAL:NO" \
-            -DBUILD_LADSPA_PLUGIN=1 \
-            -DBUILD_VST_PLUGIN=1 \
-            -DBUILD_VST3_PLUGIN=${{env.full_build}} \
-            -DBUILD_LV2_PLUGIN=${{env.full_build}} \
-            -DBUILD_AU_PLUGIN=${{env.full_build}} \
+          cmake -B"${{runner.workspace}}/build" -S . `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_C_FLAGS_RELEASE="/Ox /GL /fp:fast /arch:AVX2 /DNDEBUG /Gy /Gw /Oi /Ot /Ob2" `
+            -DCMAKE_CXX_FLAGS_RELEASE="/Ox /GL /fp:fast /arch:AVX2 /DNDEBUG /Gy /Gw /Oi /Ot /Ob2" `
+            -DCMAKE_EXE_LINKER_FLAGS_RELEASE="/LTCG /OPT:REF /OPT:ICF /INCREMENTAL:NO" `
+            -DBUILD_LADSPA_PLUGIN=1 `
+            -DBUILD_VST_PLUGIN=1 `
+            -DBUILD_VST3_PLUGIN=${{env.full_build}} `
+            -DBUILD_LV2_PLUGIN=${{env.full_build}} `
+            -DBUILD_AU_PLUGIN=${{env.full_build}} `
             -DBUILD_AUV3_PLUGIN=${{env.full_build}}
 
           cmake -B${{runner.workspace}}/build $CMAKE_ARGS

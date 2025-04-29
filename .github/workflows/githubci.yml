@@ -74,7 +74,7 @@ jobs:
             -DBUILD_VST3_PLUGIN=${{env.full_build}} \
             -DBUILD_LV2_PLUGIN=${{env.full_build}} \
             -DBUILD_AU_PLUGIN=${{env.full_build}} \
-            -DBUILD_AUV3_PLUGIN=${{env.full_build}}"
+            -DBUILD_AUV3_PLUGIN=${{env.full_build}}
 
       - name: Configure (Windows)
         if: runner.os == 'Windows'

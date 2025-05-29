@@ -22,9 +22,24 @@ jobs:
             build_params: "--parallel --config Release",
             artifact_prefix: "win"
           }
+          # - {
+          #   name: "Ubuntu Latest GCC",
+          #   os: ubuntu-latest,
+          #   cc: "gcc", cxx: "g++",
+          #   # Build is not parallel because gcc seem to run out of memory
+          #   build_params: "",
+          #   artifact_prefix: "linux"
+          # }
+          # - {
+          #   name: "macOS Latest Clang",
+          #   os: macos-latest,
+          #   cc: "clang", cxx: "clang++",
+          #   build_params: "--parallel",
+          #   artifact_prefix: "macos",
+          # }
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Install Ubuntu dependencies
         if: ${{ matrix.config.os == 'ubuntu-latest' }}
@@ -45,9 +60,9 @@ jobs:
           -DBUILD_LADSPA_PLUGIN=0
           -DBUILD_VST_PLUGIN=1
           -DBUILD_VST3_PLUGIN=1
-          -DBUILD_LV2_PLUGIN=0
-          -DBUILD_AU_PLUGIN=0
-          -DBUILD_AUV3_PLUGIN=0
+          -DBUILD_LV2_PLUGIN=1
+          -DBUILD_AU_PLUGIN=1
+          -DBUILD_AUV3_PLUGIN=1
 
       - name: Build
         run: |
@@ -61,7 +76,7 @@ jobs:
 
       - name: Upload artifacts
         id: upload-artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.config.artifact_prefix }}-rnnoise
           path: |
@@ -76,13 +91,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
 
-      # download-artifact@v3 unpacks artifacts
+      # download-artifact@v4 unpacks artifacts
       # See https://github.com/actions/download-artifact/issues/143
       - name: Zip
         run: |
+          zip -r linux-rnnoise linux-rnnoise
           zip -r win-rnnoise win-rnnoise
+          zip -r macos-rnnoise macos-rnnoise
 
       - name: Create tag
         id: tag_version
@@ -97,4 +114,6 @@ jobs:
           draft: true
           tag_name: v${{ inputs.tag }}
           files: |
+            linux-rnnoise.zip
+            macos-rnnoise.zip
             win-rnnoise.zip
